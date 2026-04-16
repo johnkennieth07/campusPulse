@@ -1,15 +1,17 @@
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# ── Stage 1: Build ──
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
+# Copy project file and restore dependencies
 COPY ["CampusPulse.csproj", "./"]
 RUN dotnet restore "CampusPulse.csproj"
 
+# Copy everything else and publish
 COPY . .
-RUN dotnet publish "CampusPulse.csproj" -c Release -o /app/publish
+RUN dotnet publish "CampusPulse.csproj" -c Release -o /app/publish --no-restore
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+# ── Stage 2: Runtime ──
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8080
 

@@ -79,5 +79,7 @@ C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\refi
 C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\CampusPulse.pdb
 C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\CampusPulse.genruntimeconfig.cache
 C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\ref\CampusPulse.dll
-C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\compressed\usggzizymq-{0}-56qwcxw5cm-56qwcxw5cm.gz
-C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\compressed\f3syq905kd-{0}-no0yo60woq-no0yo60woq.gz
+C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\CampusPulse.sourcelink.json
+C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\compressed\5pdjbh8c9x-{0}-wuac43kwij-wuac43kwij.gz
+C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\compressed\f3syq905kd-{0}-ylxnqwlpjm-ylxnqwlpjm.gz
+C:\Users\hp\Desktop\Final_Code - System Integ\CampusPulse\obj\Debug\net10.0\compressed\usggzizymq-{0}-iw2ceax8qg-iw2ceax8qg.gz
