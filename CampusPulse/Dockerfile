@@ -1,19 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# FIXED PATH HERE
-COPY ["CampusPulse/CampusPulse.csproj", "CampusPulse/"]
+COPY CampusPulse/ CampusPulse/
+WORKDIR /src/CampusPulse
 
-RUN dotnet restore "CampusPulse/CampusPulse.csproj"
+RUN dotnet restore CampusPulse.csproj
+RUN dotnet publish -c Release -o /app
 
-COPY . .
-
-RUN dotnet publish "CampusPulse/CampusPulse.csproj" -c Release -o /app/publish
-
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
-EXPOSE 8080
-
-COPY --from=build /app/publish .
-
+COPY --from=build /app .
 ENTRYPOINT ["dotnet", "CampusPulse.dll"]
