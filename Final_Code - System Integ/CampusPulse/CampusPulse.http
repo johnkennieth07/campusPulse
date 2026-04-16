@@ -1,0 +1,6 @@
+@CampusPulse_HostAddress = http://localhost:5058
+
+GET {{CampusPulse_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

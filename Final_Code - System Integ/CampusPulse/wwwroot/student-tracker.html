@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>CampusPulse — Student Tracker</title>
+  <script src="https://unpkg.com/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:#080d1a; --surface:#0f1624; --surface2:#162032;
+      --border:#1c2a3e; --accent:#00e5ff; --green:#10b981;
+      --red:#ef4444; --warning:#f59e0b; --text:#e2e8f0; --muted:#64748b;
+      --c-main:#00e5ff; --c-oldsagay:#10b981; --c-escalante:#f59e0b; --c-lagaan:#a78bfa;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html,body{height:100%;overflow:hidden;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;}
+
+    .app-header{width:100%;padding:16px 20px 12px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+    .app-logo{display:flex;align-items:center;gap:7px;font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;}
+    .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1.8s infinite;}
+    @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(0.7);opacity:0.5}}
+    .app-sub{font-size:0.68rem;color:var(--muted);}
+
+    .scroll-area{flex:1;width:100%;overflow-y:auto;padding:20px 16px 32px;}
+    .scroll-area::-webkit-scrollbar{width:0;}
+
+    .student-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;}
+    .card-label{font-size:0.62rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+
+    .form-group{margin-bottom:11px;}
+    .form-label{font-size:0.7rem;color:var(--muted);margin-bottom:5px;display:block;}
+    .form-input,.form-select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.9rem;outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
+    .form-input:focus,.form-select:focus{border-color:var(--accent);}
+    .form-select option{background:var(--surface2);}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+
+    .status-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;}
+    .status-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+    .status-indicator{display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:500;}
+    .status-pip{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .status-pip.active{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.5s infinite;}
+    .status-pip.inactive{background:var(--muted);}
+    .status-pip.searching{background:var(--warning);animation:pulse 1s infinite;}
+
+    .coords-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+    .coord-row{display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;padding:3px 0;}
+    .coord-label{color:var(--muted);}
+    .coord-val{font-family:monospace;color:var(--accent);font-size:0.8rem;}
+
+    /* Campus presence: only inside or outside */
+    .campus-result{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:0.82rem;font-weight:500;}
+    .campus-result.on{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:var(--green);}
+    .campus-result.off{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:var(--warning);}
+    .campus-result.unknown{background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+
+    .track-btn{width:100%;padding:16px;border-radius:14px;border:none;font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;cursor:pointer;transition:all 0.25s;letter-spacing:0.5px;margin-bottom:10px;}
+    .track-btn.start{background:var(--accent);color:#080d1a;}
+    .track-btn.start:active{transform:scale(0.97);}
+    .track-btn.stop{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);}
+    .track-btn.stop:active{transform:scale(0.97);}
+    .track-btn:disabled{opacity:0.5;cursor:not-allowed;}
+
+    .log-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;}
+    .log-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;}
+    .log-list::-webkit-scrollbar{width:2px;}
+    .log-list::-webkit-scrollbar-thumb{background:var(--border);}
+    .log-item{display:flex;justify-content:space-between;align-items:flex-start;font-size:0.72rem;padding:7px 10px;background:var(--surface2);border-radius:7px;}
+    .log-msg{color:var(--muted);flex:1;}
+    .log-msg span{color:var(--accent);}
+    .log-time{color:var(--muted);font-size:0.65rem;margin-left:8px;flex-shrink:0;}
+
+    .accuracy-bar-wrap{margin-bottom:12px;}
+    .accuracy-label{font-size:0.7rem;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between;}
+    .accuracy-bar{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+    .accuracy-fill{height:100%;border-radius:2px;transition:width 0.5s,background 0.5s;}
+
+    .interval-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+    .interval-label{font-size:0.72rem;color:var(--muted);white-space:nowrap;}
+    .interval-select{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-size:0.78rem;outline:none;-webkit-appearance:none;}
+
+    /* Send indicator (non-blocking — tiny dot in corner) */
+    .send-indicator{position:fixed;bottom:12px;right:12px;width:9px;height:9px;border-radius:50%;background:var(--green);opacity:0;transition:opacity 0.2s;z-index:999;}
+    .send-indicator.sending{opacity:1;}
+  </style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-logo"><div class="pulse-dot"></div>CampusPulse</div>
+  <div class="app-sub">Student Tracker</div>
+</div>
+
+<!-- Non-blocking send indicator dot -->
+<div class="send-indicator" id="sendIndicator"></div>
+
+<div class="scroll-area">
+
+  <!-- STUDENT INFO -->
+  <div class="student-card">
+    <div class="card-label">Your Information</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">First Name *</label>
+        <input class="form-input" id="firstName" placeholder="e.g. Maria" autocomplete="given-name"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last Name *</label>
+        <input class="form-input" id="lastName" placeholder="e.g. Santos" autocomplete="family-name"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Student ID</label>
+      <input class="form-input" id="studentId" placeholder="e.g. 24-2083" autocomplete="off"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Course *</label>
+      <input class="form-input" id="course" placeholder="e.g. BS Information Technology" autocomplete="off"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Year Level</label>
+        <select class="form-select" id="yearLevel">
+          <option value="1st Year">1st Year</option>
+          <option value="2nd Year">2nd Year</option>
+          <option value="3rd Year">3rd Year</option>
+          <option value="4th Year">4th Year</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">My Campus *</label>
+        <select class="form-select" id="campusSelect">
+          <option value="main">Main Campus — Sagay City</option>
+          <option value="oldsagay">Old Sagay Campus — Sagay City</option>
+          <option value="escalante">Escalante Campus — Escalante City</option>
+          <option value="lagaan">Laga-an Campus — Calatrava</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Hometown / City *</label>
+      <input class="form-input" id="hometown" placeholder="e.g. Sagay City, Negros Occidental" autocomplete="off"/>
+    </div>
+  </div>
+
+  <!-- TRACKING STATUS -->
+  <div class="status-card">
+    <div class="card-label">Live Location</div>
+
+    <div class="status-header">
+      <div class="status-indicator">
+        <div class="status-pip inactive" id="statusPip"></div>
+        <span id="statusText">Not tracking</span>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted)" id="updateCount">0 updates sent</div>
+    </div>
+
+    <div class="accuracy-bar-wrap">
+      <div class="accuracy-label">
+        <span>GPS Accuracy</span>
+        <span id="accuracyText">—</span>
+      </div>
+      <div class="accuracy-bar">
+        <div class="accuracy-fill" id="accuracyFill" style="width:0%;background:var(--muted)"></div>
+      </div>
+    </div>
+
+    <div class="coords-box">
+      <div class="coord-row"><span class="coord-label">Latitude</span><span class="coord-val" id="dispLat">—</span></div>
+      <div class="coord-row"><span class="coord-label">Longitude</span><span class="coord-val" id="dispLng">—</span></div>
+      <div class="coord-row"><span class="coord-label">Last update</span><span class="coord-val" id="dispTime">—</span></div>
+    </div>
+
+    <!-- Inside / Outside only — no distance details sent to reduce tracking anxiety -->
+    <div class="campus-result unknown" id="campusResult">
+      <span>📍</span>
+      <span id="campusResultText">Location not yet detected</span>
+    </div>
+
+    <div class="interval-row">
+      <span class="interval-label">Send update every:</span>
+      <select class="interval-select" id="intervalSelect">
+        <option value="5000">5 seconds</option>
+        <option value="10000" selected>10 seconds</option>
+        <option value="30000">30 seconds</option>
+        <option value="60000">1 minute</option>
+      </select>
+    </div>
+
+    <button class="track-btn start" id="trackBtn" onclick="toggleTracking()">
+      📍 Start Tracking
+    </button>
+    <div style="font-size:0.7rem;color:var(--muted);text-align:center">
+      Your location is only shared while this page is open
+    </div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="log-card">
+    <div class="card-label" style="margin-bottom:10px">Activity Log</div>
+    <div class="log-list" id="logList">
+      <div class="log-item"><span class="log-msg">Waiting to start tracking…</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Auto-detect server URL ──
+const SERVER_URL = window.location.origin;
+
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl(`${SERVER_URL}/locationHub`)
+    .withAutomaticReconnect()
+    .configureLogging(signalR.LogLevel.Warning)
+    .build();
+
+window.signalRConnection = connection;
+
+async function startSignalR() {
+    try {
+        await connection.start();
+        addLog('🔗 <span>Connected to server</span>');
+    } catch (err) {
+        addLog('⚠️ Retrying server connection…');
+        setTimeout(startSignalR, 5000);
+    }
+}
+
+startSignalR();
+// ══════════════════════════════════════════
+// CAMPUS DEFINITIONS
+// radius: 100 m — matches server geofence exactly
+// ══════════════════════════════════════════
+const CAMPUSES = {
+  main:      { id:'main',      name:'Main Campus',      location:'Sagay City',     lat:10.8942,  lng:123.4175, color:'#00e5ff', radius:100 },
+  oldsagay:  { id:'oldsagay',  name:'Old Sagay Campus',  location:'Sagay City',     lat:10.9403,  lng:123.4230, color:'#10b981', radius:100 },
+  escalante: { id:'escalante', name:'Escalante Campus',  location:'Escalante City', lat:10.8382,  lng:123.4983, color:'#f59e0b', radius:100 },
+  lagaan:    { id:'lagaan',    name:'Laga-an Campus',    location:'Calatrava',      lat:10.6342,  lng:123.3817, color:'#a78bfa', radius:100 },
+};
+
+let isTracking    = false;
+let watchId       = null;
+let intervalTimer = null;
+let updateCount   = 0;
+let lastPosition  = null;
+
+// ══════════════════════════════════════════
+// HAVERSINE
+// ══════════════════════════════════════════
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2)
+          + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ══════════════════════════════════════════
+// FIX #5: classify as INSIDE or OUTSIDE only
+// No exact distance/coords shared in the UI
+// ══════════════════════════════════════════
+function detectCampus(lat, lng) {
+  for (const campus of Object.values(CAMPUSES)) {
+    const dist = distanceMeters(lat, lng, campus.lat, campus.lng);
+    if (dist <= campus.radius) return { campus, onCampus: true };
+  }
+  // Off-campus — don't tell the student which campus or exact distance
+  return { campus: null, onCampus: false };
+}
+
+// ══════════════════════════════════════════
+// FIX #4: send in background — no UI blocking
+// ══════════════════════════════════════════
+function sendLocationToDashboard(lat, lng, accuracy, status, campusId) {
+  const firstName = document.getElementById('firstName').value.trim() || 'Student';
+  const lastName  = document.getElementById('lastName').value.trim()  || '';
+  const studentId = document.getElementById('studentId').value.trim() || '—';
+  const course    = document.getElementById('course').value.trim()    || '—';
+  const yearLevel = document.getElementById('yearLevel').value        || '1st Year';
+  const hometown  = document.getElementById('hometown').value.trim()  || '—';
+  const campus    = campusId || document.getElementById('campusSelect').value;
+
+  const payload = {
+    studentName: `${firstName} ${lastName}`.trim(),
+    studentId,
+    course,
+    year: yearLevel,
+    hometown,
+    campus,
+    latitude:  lat,
+    longitude: lng,
+    accuracy,
+    status,   // "on-campus" or "off-campus" — server will reconfirm via geofence
+    timestamp: new Date().toISOString()
+  };
+
+  // Send via BroadcastChannel (non-blocking)
+  try {
+    const channel = new BroadcastChannel('campuspulse-tracker');
+    channel.postMessage(payload);
+    channel.close();
+  } catch(e) {}
+
+  // Also write to localStorage for tab-polling fallback (non-blocking)
+  try {
+    localStorage.setItem('campuspulse_last_update', JSON.stringify(payload));
+  } catch(e) {}
+
+  // If SignalR is connected, send there too (non-blocking)
+  try {
+    if (window.signalRConnection && window.signalRConnection.state === 'Connected') {
+      window.signalRConnection.invoke('UpdateStudentLocation', payload).catch(() => {});
+    }
+  } catch(e) {}
+
+  updateCount++;
+  document.getElementById('updateCount').textContent = `${updateCount} update${updateCount !== 1 ? 's' : ''} sent`;
+
+  // Non-blocking visual: tiny dot flashes in corner, NOT the main button
+  const ind = document.getElementById('sendIndicator');
+  ind.classList.add('sending');
+  setTimeout(() => ind.classList.remove('sending'), 500);
+}
+
+// ══════════════════════════════════════════
+// GPS SUCCESS
+// ══════════════════════════════════════════
+function onGpsSuccess(position) {
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+  const acc = position.coords.accuracy;
+  lastPosition = { lat, lng, acc };
+
+  document.getElementById('dispLat').textContent  = lat.toFixed(6);
+  document.getElementById('dispLng').textContent  = lng.toFixed(6);
+  document.getElementById('dispTime').textContent = new Date().toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+  const accPct   = Math.max(0, Math.min(100, 100-(acc/2)));
+  const accColor = acc < 20 ? '#10b981' : acc < 50 ? '#f59e0b' : '#ef4444';
+  document.getElementById('accuracyFill').style.width      = accPct + '%';
+  document.getElementById('accuracyFill').style.background = accColor;
+  document.getElementById('accuracyText').textContent      = `±${Math.round(acc)}m`;
+
+  const { campus, onCampus } = detectCampus(lat, lng);
+  const resultEl  = document.getElementById('campusResult');
+  const resultTxt = document.getElementById('campusResultText');
+
+  if (onCampus) {
+    resultEl.className = 'campus-result on';
+    // FIX #5: show only inside/outside — no distance, no coords
+    resultTxt.innerHTML = `✅ You are <strong>inside campus</strong>`;
+    setPip('active');
+    setStatus('Tracking — Inside Campus');
+    sendLocationToDashboard(lat, lng, acc, 'on-campus', campus.id);
+    addLog(`📍 <span>Inside ${campus.name}</span>`);
+  } else {
+    resultEl.className = 'campus-result off';
+    resultTxt.innerHTML = `🏠 You are <strong>outside campus</strong>`;
+    setPip('active');
+    setStatus('Tracking — Outside Campus');
+    sendLocationToDashboard(lat, lng, acc, 'off-campus', document.getElementById('campusSelect').value);
+    addLog(`🏠 <span>Outside campus</span>`);
+  }
+}
+
+function onGpsError(err) {
+  const msgs = { 1:'Location permission denied.', 2:'Location unavailable.', 3:'Location request timed out.' };
+  setStatus('GPS Error'); setPip('inactive');
+  addLog(`❌ ${msgs[err.code] || 'GPS error'}`);
+  if (err.code === 1) { stopTracking(); alert('Please allow location access to use this tracker.'); }
+}
+
+// ══════════════════════════════════════════
+// START / STOP
+// ══════════════════════════════════════════
+function toggleTracking() { if (isTracking) stopTracking(); else startTracking(); }
+
+function startTracking() {
+  const firstName = document.getElementById('firstName').value.trim();
+  const lastName  = document.getElementById('lastName').value.trim();
+  if (!firstName || !lastName) { alert('Please enter your First Name and Last Name first.'); return; }
+  if (!navigator.geolocation) { alert('Geolocation is not supported by your browser.'); return; }
+
+  isTracking = true; updateCount = 0;
+
+  const btn = document.getElementById('trackBtn');
+  btn.textContent = '⏹ Stop Tracking';
+  btn.className   = 'track-btn stop';
+
+  setPip('searching'); setStatus('Getting GPS…');
+
+  const interval = parseInt(document.getElementById('intervalSelect').value);
+
+  watchId = navigator.geolocation.watchPosition(onGpsSuccess, onGpsError, {
+    enableHighAccuracy: true,
+    timeout:            15000,
+    maximumAge:         interval
+  });
+
+  intervalTimer = setInterval(() => {
+    if (lastPosition) {
+      onGpsSuccess({ coords:{ latitude:lastPosition.lat, longitude:lastPosition.lng, accuracy:lastPosition.acc } });
+    }
+  }, interval);
+
+  addLog('🟢 <span>Tracking started</span>');
+  document.getElementById('firstName').disabled    = true;
+  document.getElementById('lastName').disabled     = true;
+  document.getElementById('studentId').disabled    = true;
+  document.getElementById('course').disabled       = true;
+  document.getElementById('yearLevel').disabled    = true;
+  document.getElementById('hometown').disabled     = true;
+  document.getElementById('campusSelect').disabled = true;
+}
+
+function stopTracking() {
+  isTracking = false;
+  if (watchId !== null)       { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (intervalTimer !== null) { clearInterval(intervalTimer); intervalTimer = null; }
+
+  const btn = document.getElementById('trackBtn');
+  btn.textContent = '📍 Start Tracking';
+  btn.className   = 'track-btn start';
+
+  setPip('inactive'); setStatus('Not tracking');
+  addLog('🔴 <span>Tracking stopped</span>');
+
+  document.getElementById('firstName').disabled    = false;
+  document.getElementById('lastName').disabled     = false;
+  document.getElementById('studentId').disabled    = false;
+  document.getElementById('course').disabled       = false;
+  document.getElementById('yearLevel').disabled    = false;
+  document.getElementById('hometown').disabled     = false;
+  document.getElementById('campusSelect').disabled = false;
+}
+
+// ══════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════
+function setPip(state) { document.getElementById('statusPip').className = `status-pip ${state}`; }
+function setStatus(txt) { document.getElementById('statusText').textContent = txt; }
+
+function addLog(msg) {
+  const log  = document.getElementById('logList');
+  const time = new Date().toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  item.innerHTML = `<span class="log-msg">${msg}</span><span class="log-time">${time}</span>`;
+  log.insertBefore(item, log.firstChild);
+  if (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+// Keep screen awake if supported
+if ('wakeLock' in navigator) {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && isTracking) {
+      try { await navigator.wakeLock.request('screen'); } catch(e) {}
+    }
+  });
+}
+</script>
+</body>
+</html>
